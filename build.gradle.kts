@@ -6,3 +6,8 @@ plugins {
     alias(libs.plugins.ksp) apply false
     id("org.jetbrains.kotlin.jvm") version "1.7.10" apply false
 }
+
+allprojects {
+    version = "1.0"
+    group = "io.github.aashitshah26"
+}
