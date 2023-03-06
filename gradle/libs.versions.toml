@@ -1,0 +1,20 @@
+[versions]
+kotlin = "1.7.10"
+ksp = "1.7.10-1.0.6"
+andr = "7.3.0"
+coreKtx = "1.7.0"
+appcompat = "1.6.1"
+
+[libraries]
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+ksp = { group = "com.google.devtools.ksp", name = "symbol-processing-api", version.ref = "ksp" }
+androidx-coreKtx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "coreKtx" }
+
+
+[plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+andr-application = { id = "com.android.application", version.ref = "andr" }
+andr-library = { id = "com.android.library", version.ref = "andr" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
