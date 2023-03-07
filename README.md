@@ -6,7 +6,7 @@ To implement protobuf, we use Wire to serialize/deserialize, which takes .proto 
 
 ## Installing
 
-[ ![Maven Central](https://badgen.net/maven/v/maven-central/io.github.aashitshah26/protobufgenerator-core) ](https://central.sonatype.com/artifact/io.github.aashitshah26/protobufgenerator-core/1.0.4)
+[ ![Maven Central](https://badgen.net/maven/v/maven-central/io.github.aashitshah26/protobufgenerator-core) ](https://central.sonatype.com/artifact/io.github.aashitshah26/protobufgenerator-core/1.0.5)
 
 Add KSP plugin, gradle dependency, packing options and include generated ksp directory to your sourceSets
 
@@ -54,7 +54,7 @@ data class Animal(
 )
 ```
 
-If there is a class which is inherited by some other classes and the parent class is referenced in your data class. We will have to use `@OneOfParent` and `@OneOfChild` annotations to support the generation of porto messages for child as well. See [test 2](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test2.kt) for better understanding.
+If there is a class which is inherited by some other classes and the parent class is referenced in your data class. We will have to use `@OneOfParent` and `@OneOfChild` annotations to support the generation of porto messages for child as well. See [Test 2](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test2.kt) for better understanding.
 
 ```kotlin
 @OneOfParent(shouldGenerateSelf = true)
@@ -65,6 +65,29 @@ open class AnimalAttribute {
 @OneOfChild(AnimalAttribute::class)
 data class LandAttribute(
     val runningSpeed: Float = 0F
+)
+```
+
+If there is some parameter that you don't want to show up in your proto file, you can use `@IgnoreProtoProperty` annotation. See [Test 3](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test3.kt) for better understanding.
+
+```kotlin
+@AutoProtoGenerator(javaPackage = "com.proto.test3")
+data class Test3(
+    val name: ArrayList<ArrayList<String>>? = null,
+    @IgnoreProtoProperty
+    val ignoredProp: String? = null
+)
+```
+
+We have also added support for Gson. All the properties annotated with `SerializedName` will use the annontation value as name. See [Test 1](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test1.kt) for better understanding.
+
+```kotlin
+@AutoProtoGenerator(javaPackage = "com.proto.animal")
+data class Animal(
+    @SerializedName("nm") val name: String,
+    @SerializedName("canStayOnLand") val canStayOnLand: ArrayList<String>,
+    @SerializedName("canStayInWater") val canStayInWater: Boolean?,
+    @SerializedName("canFly") val canFly: Boolean
 )
 ```
 
