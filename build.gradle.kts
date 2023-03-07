@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.mavenPublish) apply false
     id("org.jetbrains.kotlin.jvm") version "1.7.10" apply false
+    id("com.squareup.wire") version "4.4.3" apply false
 }
 
 subprojects {

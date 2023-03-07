@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     kotlin("android")
     id("com.google.devtools.ksp")
+    id("com.squareup.wire")
 }
 
 android {
@@ -46,10 +47,36 @@ android {
     }
 }
 
+wire {
+    sourcePath {
+        srcDirs
+        srcDir("build/generated/ksp/debug/resources/com/protogen")
+    }
+    kotlin {
+        // to implement android.os.Parcelable
+        android = true
+    }
+}
+
+afterEvaluate {
+    android.applicationVariants.forEach {
+        val buildType = it.buildType.name
+        val kspTask = "ksp${buildType.capitalize()}Kotlin"
+        val wireTask = "generate${buildType.capitalize()}Protos"
+        tasks.named(wireTask) {
+            dependsOn(kspTask)
+        }
+    }
+}
+
 dependencies {
     implementation(libs.androidx.coreKtx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    implementation("com.google.code.gson:gson:2.8.7")
     implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
-    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.4")
+    implementation(project(":core"))
+    ksp(project(":protogen"))
+//    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
+//    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.4")
 }

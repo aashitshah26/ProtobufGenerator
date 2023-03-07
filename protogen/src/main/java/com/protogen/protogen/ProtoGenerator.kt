@@ -3,21 +3,26 @@ package com.protogen.protogen
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.gson.JsonElement
 
 class ProtoGenerator(
     private val logger: KSPLogger
 ) {
+
     private val messageMap: MutableMap<String, String> = mutableMapOf()
-    private val typeProjectionMap: MutableMap<String, KSType> = mutableMapOf()
+    private val typeProjectionMap: HashMap<String, KSType> = HashMap()
     private val importList: MutableList<String> = mutableListOf()
+    private val messageInPipeline: MutableList<String> = mutableListOf()
 
     companion object {
         private val DEFAULT_CLASSES = listOf("String", "Int", "Float", "Long", "Double", "Boolean")
         private val REPEATABLE_CLASSES = listOf(
-            "Array", "IntArray", "FloatArray", "LongArray", "DoubleArray", "BooleanArray"
+            "Array", "IntArray", "FloatArray", "LongArray", "DoubleArray", "BooleanArray", "ArrayList"
         )
         private const val OPTION_JAVA_PACKAGE = "option java_package"
         private const val OPTION_JAVA_MULTIPLE_FILES = "option java_multiple_files"
@@ -48,9 +53,14 @@ class ProtoGenerator(
     }
 
     private fun KSClassDeclaration.generateMessage(resolver: Resolver) {
+        val messageName = simpleName.asString()
+        if (messageMap.contains(messageName) || messageInPipeline.contains(simpleName.asString())) {
+            return
+        }
         if (isSealed()) {
+            messageInPipeline.add(messageName)
             val data = StringBuilder()
-            data.appendLine("message ${simpleName.asString()} {")
+            data.appendLine("message $messageName {")
             data.appendLine("\toneof single_field_oneof {")
             getSealedSubclasses().forEachIndexed { index, sealedInnerClass ->
                 val nm = sealedInnerClass.simpleName.asString()
@@ -59,10 +69,12 @@ class ProtoGenerator(
             }
             data.appendLine("\t}")
             data.appendLine("}")
-            messageMap[simpleName.asString()] = data.toString()
+            messageMap[messageName] = data.toString()
+            messageInPipeline.remove(messageName)
         } else if (isOneOfParent()) {
+            messageInPipeline.add(messageName)
             val data = StringBuilder()
-            data.appendLine("message ${simpleName.asString()} {")
+            data.appendLine("message $messageName {")
             data.appendLine("\toneof single_field_oneof {")
             var count = 1
             resolver.getOneOfChilds(this).forEachIndexed { index, t ->
@@ -71,36 +83,37 @@ class ProtoGenerator(
                 t.generateMessage(resolver)
             }
             if (canGenerateSelf()) {
-                val nm = simpleName.asString() + "Self"
+                val nm = messageName + "Self"
                 data.appendLine("\t\t${nm} ${nm.lowercase()} = ${count++};")
                 generateDefaultMessage(nm, resolver)
             }
             data.appendLine("\t}")
             data.appendLine("}")
-            messageMap[simpleName.asString()] = data.toString()
+            messageMap[messageName] = data.toString()
+            messageInPipeline.remove(messageName)
         } else {
-            generateDefaultMessage(simpleName.asString(), resolver)
+            generateDefaultMessage(messageName, resolver)
         }
     }
 
     private fun KSClassDeclaration.generateDefaultMessage(messageName: String, resolver: Resolver) {
-        if (messageMap.contains(messageName)) {
+        if (messageMap.contains(messageName) || messageInPipeline.contains(messageName)) {
             return
         }
-        logger.info("creatingMessage $messageName")
+        messageInPipeline.add(messageName)
         val data = StringBuilder()
         if (isEnum()) {
             data.appendLine("enum $messageName {")
-            declarations.filter { it is KSClassDeclaration }
-                .forEachIndexed { index, item ->
+            getEnumConstants().forEachIndexed { index, item ->
                     data.append("\t")
-                    data.appendLine("${item.simpleName.asString()} = ${index};")
+                    val nm = item.getSerializedName() ?: item.simpleName.asString()
+                    data.appendLine("${messageName}_${nm} = ${index};")
                 }
             data.appendLine("}")
         } else {
             data.appendLine("message $messageName {")
             var countItems = 1
-            getAllProperties().forEachIndexed { index, variable ->
+            getAllProtoProperties().forEachIndexed { index, variable ->
                 val type = variable.type.resolve()
                 val isNullable = type.isMarkedNullable
                 val name = variable.getSerializedName() ?: variable.simpleName.asString()
@@ -109,8 +122,11 @@ class ProtoGenerator(
                 val realClass = when (val classifier = type.declaration) {
                     is KSClassDeclaration -> classifier
                     is KSTypeParameter -> typeProjectionMap[classifier.simpleName.asString()]?.declaration as? KSClassDeclaration
+                    is KSTypeAlias -> {
+                        classifier.type.resolve().declaration as KSClassDeclaration
+                    }
                     else -> {
-                        logger.error("Member type for variable $name of $messageName is null")
+                        logger.error("Member type for variable $name of $messageName is null $type")
                         null
                     }
                 }
@@ -134,11 +150,13 @@ class ProtoGenerator(
             data.appendLine("}")
         }
         messageMap[messageName] = data.toString()
+        messageInPipeline.remove(messageName)
     }
 
     private fun KSClassDeclaration.isRepeatableDataStructure(): Boolean {
         return isSubclassOf(List::class) ||
                 isSubclassOf(Collection::class) ||
+                isSubclassOf(ArrayList::class) ||
                 (simpleName.asString() in REPEATABLE_CLASSES)
     }
 
@@ -149,6 +167,7 @@ class ProtoGenerator(
                 isSubclassOf(JsonElement::class) ||
                 isSubclassOf("JSONArray", "org.json.JSONArray") ||
                 isSubclassOf("JSONObject", "org.json.JSONObject")).not()
+
     }
 
     private fun KSClassDeclaration.isDefaultDataStructure(): Boolean {
@@ -168,30 +187,44 @@ class ProtoGenerator(
                         typeProjectionMap[param.name.asString()] = it.resolve()
                     }
                 }
-                if (classifier.typeParameters.isEmpty()) {
-                    if (classifier.shouldGenerateMsg()) {
-                        classifier.generateMessage(resolver)
-                    }
-                    classifier.getProtoDataType()
-                } else if (classifier.isRepeatableDataStructure()) {
-                    if (missRepeated) {
-                        handleArguments(variableName, type.arguments[0].type!!.resolve(), resolver, false)
-                    } else {
-                        createListMessage(variableName, handleArguments(variableName, type.arguments[0].type!!.resolve(), resolver, missRepeated))
-                    }
-                } else if (classifier.isSubclassOf(Map::class)) {
-                    return "map<${handleArguments(variableName, type.arguments[0].type!!.resolve(), resolver, false)}," +
-                            "${handleArguments(variableName, type.arguments[1].type!!.resolve(), resolver, false)}>"
-                } else if (classifier.shouldGenerateMsg()) {
-                    classifier.generateMessage(resolver)
-                    classifier.simpleName.asString()
-                } else {
-                    classifier.getProtoDataType()
+                classifier.handleClassDeclarationArgument(
+                    variableName,
+                    type,
+                    resolver,
+                    missRepeated
+                ) { _variableName, _type, _resolver, _missRepeated ->
+                    handleArguments(_variableName, _type, _resolver, _missRepeated)
                 }
             }
             is KSTypeParameter -> {
                 typeProjectionMap[classifier.name.asString()]?.let { handleArguments(variableName, it, resolver, missRepeated) }
                     ?: "Got null projection"
+            }
+            is KSFunctionDeclaration -> {
+                logger.error("KSFunctionDeclaration can't be null ${classifier.simpleName.asString()}")
+                "-----"
+            }
+            is KSPropertyDeclaration -> {
+                logger.error("KSPropertyDeclaration can't be null ${classifier.simpleName.asString()}")
+                "-----"
+            }
+            is KSTypeAlias -> {
+                classifier.typeParameters.forEachIndexed { index, param ->
+                    type.arguments[index].type?.let {
+                        typeProjectionMap[param.name.asString()] = it.resolve()
+                    }
+                }
+                val cls = classifier.type.resolve().declaration as KSClassDeclaration
+                cls.handleClassDeclarationArgument(
+                    variableName,
+                    classifier.type.resolve(),
+                    resolver,
+                    missRepeated
+                ) { _variableName, _type, _resolver, _missRepeated ->
+                    val typePara = _type.declaration.simpleName.asString()
+                    typeProjectionMap[typePara]?.let { handleArguments(_variableName, it, _resolver, _missRepeated) }
+                        ?: typePara
+                }
             }
             else -> {
                 logger.error("Classifier can't be null")
@@ -199,6 +232,35 @@ class ProtoGenerator(
             }
         }
         return data
+    }
+
+    private fun KSClassDeclaration.handleClassDeclarationArgument(
+        variableName: String,
+        type: KSType,
+        resolver: Resolver,
+        missRepeated: Boolean = true,
+        handleGeneration: (String, KSType, Resolver, Boolean) -> String
+    ): String {
+        return if (typeParameters.isEmpty()) {
+            if (shouldGenerateMsg()) {
+                generateMessage(resolver)
+            }
+            getProtoDataType()
+        } else if (isRepeatableDataStructure()) {
+            if (missRepeated) {
+                handleGeneration(variableName, type.arguments[0].type!!.resolve(), resolver, false)
+            } else {
+                createListMessage(variableName, handleGeneration(variableName, type.arguments[0].type!!.resolve(), resolver, missRepeated))
+            }
+        } else if (isSubclassOf(Map::class)) {
+            "map<${handleGeneration(variableName, type.arguments[0].type!!.resolve(), resolver, false)}," +
+                    "${handleGeneration(variableName, type.arguments[1].type!!.resolve(), resolver, false)}>"
+        } else if (shouldGenerateMsg()) {
+            generateMessage(resolver)
+            getProtoDataType()
+        } else {
+            getProtoDataType()
+        }
     }
 
     private fun KSClassDeclaration.getProtoDataType(): String {

@@ -1,6 +1,6 @@
 [versions]
-kotlin = "1.7.10"
-ksp = "1.7.10-1.0.6"
+kotlin = "1.7.20"
+ksp = "1.7.20-1.0.8"
 andr = "7.3.0"
 coreKtx = "1.7.0"
 appcompat = "1.6.1"

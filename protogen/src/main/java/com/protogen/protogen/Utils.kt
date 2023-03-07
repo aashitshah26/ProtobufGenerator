@@ -2,14 +2,16 @@ package com.protogen.protogen
 
 import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getAnnotationsByType
+import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
+import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.Modifier
 import com.google.gson.annotations.SerializedName
 import com.protogen.core.AutoProtoGenerator
+import com.protogen.core.IgnoreProtoProperty
 import com.protogen.core.OneOfChild
 import com.protogen.core.OneOfParent
 import kotlin.reflect.KClass
@@ -21,7 +23,7 @@ fun KSClassDeclaration.isSealed() =
 fun KSClassDeclaration.isEnum() = classKind == ClassKind.ENUM_CLASS
 
 @OptIn(KspExperimental::class)
-fun KSPropertyDeclaration.getSerializedName() =
+fun KSAnnotated.getSerializedName() =
     getAnnotationsByType(SerializedName::class)
         .firstOrNull()?.value
 
@@ -76,3 +78,15 @@ fun KSClassDeclaration.getProtoOptions() =
         .firstOrNull()?.let {
             ProtoOptions(javaPackage = it.javaPackage, javaMultipleFile = it.javaMultipleFile)
         } ?: ProtoOptions(javaPackage = packageName.asString() + ".protogen", javaMultipleFile = true)
+
+@OptIn(KspExperimental::class)
+fun KSClassDeclaration.getAllProtoProperties() =
+    getAllProperties()
+        .filterNot { it.isAnnotationPresent(IgnoreProtoProperty::class) || it.isAnnotationPresent(Transient::class) }
+
+@OptIn(KspExperimental::class)
+fun KSClassDeclaration.getEnumConstants() =
+    declarations
+        .filter { it is KSClassDeclaration }
+        .filterNot { (it as KSClassDeclaration).isCompanionObject }
+        .filterNot { it.isAnnotationPresent(IgnoreProtoProperty::class) || it.isAnnotationPresent(Transient::class) }
