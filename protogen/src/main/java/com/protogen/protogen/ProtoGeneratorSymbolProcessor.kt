@@ -16,6 +16,7 @@ class ProtoGeneratorSymbolProcessor(
 
     companion object {
         private const val PROTO_EXTENSION = "proto"
+        private const val PACKAGE = "com.protogen"
     }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
@@ -24,7 +25,7 @@ class ProtoGeneratorSymbolProcessor(
         symbols.filter { it.validate() }.forEach {
             environment.codeGenerator.createNewFile(
                 dependencies = Dependencies(false, *resolver.getAllFiles().toList().toTypedArray()),
-                packageName = "comm.protos1",
+                packageName = PACKAGE,
                 fileName = it.simpleName.asString(),
                 extensionName = PROTO_EXTENSION
             ).apply {
