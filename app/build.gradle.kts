@@ -50,6 +50,6 @@ dependencies {
     implementation(libs.androidx.coreKtx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(project(":core"))
-    ksp(project(":protogen"))
+    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
+    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.4")
 }

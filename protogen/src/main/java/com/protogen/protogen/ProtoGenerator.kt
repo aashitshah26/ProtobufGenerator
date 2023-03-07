@@ -91,10 +91,11 @@ class ProtoGenerator(
         val data = StringBuilder()
         if (isEnum()) {
             data.appendLine("enum $messageName {")
-            javaClass.enumConstants?.forEachIndexed { index, d ->
-                data.append("\t")
-                data.appendLine("$d = ${index + 1};")
-            }
+            declarations.filter { it is KSClassDeclaration }
+                .forEachIndexed { index, item ->
+                    data.append("\t")
+                    data.appendLine("${item.simpleName.asString()} = ${index};")
+                }
             data.appendLine("}")
         } else {
             data.appendLine("message $messageName {")
