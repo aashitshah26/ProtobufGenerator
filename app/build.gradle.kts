@@ -49,8 +49,7 @@ android {
 
 wire {
     sourcePath {
-        srcDirs
-        srcDir("build/generated/ksp/debug/resources/com/protogen")
+        srcDir("build/generated/ksp/debug/resources")
     }
     kotlin {
         // to implement android.os.Parcelable
@@ -74,9 +73,6 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation("com.google.code.gson:gson:2.8.7")
-    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
     implementation(project(":core"))
     ksp(project(":protogen"))
-//    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
-//    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.4")
 }

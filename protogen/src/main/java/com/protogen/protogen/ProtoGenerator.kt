@@ -1,5 +1,9 @@
+@file:OptIn(KspExperimental::class)
+
 package com.protogen.protogen
 
+import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -9,6 +13,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.gson.JsonElement
+import com.protogen.core.AutoProtoGenerator
 
 class ProtoGenerator(
     private val logger: KSPLogger
@@ -27,6 +32,8 @@ class ProtoGenerator(
         private const val OPTION_JAVA_PACKAGE = "option java_package"
         private const val OPTION_JAVA_MULTIPLE_FILES = "option java_multiple_files"
         private const val SYNTAX_PROTO3 = "syntax = \"proto3\";"
+        private const val PACKAGE = "package ${ProtoGeneratorSymbolProcessor.PACKAGE};"
+        private val PACKAGE_IMPORT = "${ProtoGeneratorSymbolProcessor.PACKAGE.replace(".","/")}"
         private const val IMPORT = "import"
         private val NUMBER_PATTERN = Regex("\\d+")
         private const val PROTO_EXTENSION = "proto"
@@ -40,6 +47,7 @@ class ProtoGenerator(
     ): String {
         val protoData = StringBuilder()
         protoData.appendLine(SYNTAX_PROTO3)
+        protoData.appendLine(PACKAGE)
         cls.generateMessage(resolver)
         for (import in importList) {
             protoData.appendLine("${IMPORT} \"$import\";")
@@ -91,6 +99,18 @@ class ProtoGenerator(
             data.appendLine("}")
             messageMap[messageName] = data.toString()
             messageInPipeline.remove(messageName)
+        } else if (isEnum()) {
+            messageInPipeline.add(messageName)
+            val data = StringBuilder()
+            data.appendLine("enum $messageName {")
+            getEnumConstants().forEachIndexed { index, item ->
+                data.append("\t")
+                val nm = item.getSerializedName() ?: item.simpleName.asString()
+                data.appendLine("${messageName}_${nm} = ${index};")
+            }
+            data.appendLine("}")
+            messageMap[messageName] = data.toString()
+            messageInPipeline.remove(messageName)
         } else {
             generateDefaultMessage(messageName, resolver)
         }
@@ -102,53 +122,44 @@ class ProtoGenerator(
         }
         messageInPipeline.add(messageName)
         val data = StringBuilder()
-        if (isEnum()) {
-            data.appendLine("enum $messageName {")
-            getEnumConstants().forEachIndexed { index, item ->
-                    data.append("\t")
-                    val nm = item.getSerializedName() ?: item.simpleName.asString()
-                    data.appendLine("${messageName}_${nm} = ${index};")
-                }
-            data.appendLine("}")
-        } else {
-            data.appendLine("message $messageName {")
-            var countItems = 1
-            getAllProtoProperties().forEachIndexed { index, variable ->
-                val type = variable.type.resolve()
-                val isNullable = type.isMarkedNullable
-                val name = variable.getSerializedName() ?: variable.simpleName.asString()
-                val typeAsPerHandledItem = handleArguments(name, type, resolver)
+        data.appendLine("message $messageName {")
+        var countItems = 1
+        getAllProtoProperties().forEachIndexed { index, variable ->
+            val type = variable.getConvertedType(resolver, logger) ?: variable.type.resolve()
 
-                val realClass = when (val classifier = type.declaration) {
-                    is KSClassDeclaration -> classifier
-                    is KSTypeParameter -> typeProjectionMap[classifier.simpleName.asString()]?.declaration as? KSClassDeclaration
-                    is KSTypeAlias -> {
-                        classifier.type.resolve().declaration as KSClassDeclaration
-                    }
-                    else -> {
-                        logger.error("Member type for variable $name of $messageName is null $type")
-                        null
-                    }
-                }
+            val isNullable = type.isMarkedNullable
+            val name = variable.getSerializedName() ?: variable.simpleName.asString()
+            val typeAsPerHandledItem = handleArguments(name, type, resolver)
 
-                realClass?.let { rC ->
-                    val isRepeatableDS = rC.isRepeatableDataStructure()
-                    if (rC.shouldGenerateMsg()) {
-                        rC.generateMessage(resolver)
-                    }
-                    data.append("\t")
-                    if (isNullable && isRepeatableDS.not() && rC.isSubclassOf(Map::class).not()) {
-                        data.append("optional ")
-                    }
-                    if (isRepeatableDS) {
-                        data.append("repeated ")
-                    }
-                    data.append("$typeAsPerHandledItem ")
-                    data.appendLine("$name = ${countItems++};")
+            val realClass = when (val classifier = type.declaration) {
+                is KSClassDeclaration -> classifier
+                is KSTypeParameter -> typeProjectionMap[classifier.simpleName.asString()]?.declaration as? KSClassDeclaration
+                is KSTypeAlias -> {
+                    classifier.type.resolve().declaration as KSClassDeclaration
+                }
+                else -> {
+                    logger.error("Member type for variable $name of $messageName is null $type")
+                    null
                 }
             }
-            data.appendLine("}")
+
+            realClass?.let { rC ->
+                val isRepeatableDS = rC.isRepeatableDataStructure()
+                if (rC.shouldGenerateMsg()) {
+                    rC.generateMessage(resolver)
+                }
+                data.append("\t")
+                if (isNullable && isRepeatableDS.not() && rC.isSubclassOf(Map::class).not()) {
+                    data.append("optional ")
+                }
+                if (isRepeatableDS) {
+                    data.append("repeated ")
+                }
+                data.append("$typeAsPerHandledItem ")
+                data.appendLine("$name = ${countItems++};")
+            }
         }
+            data.appendLine("}")
         messageMap[messageName] = data.toString()
         messageInPipeline.remove(messageName)
     }
@@ -166,7 +177,8 @@ class ProtoGenerator(
                 isSubclassOf(Map::class) ||
                 isSubclassOf(JsonElement::class) ||
                 isSubclassOf("JSONArray", "org.json.JSONArray") ||
-                isSubclassOf("JSONObject", "org.json.JSONObject")).not()
+                isSubclassOf("JSONObject", "org.json.JSONObject") ||
+                isAnnotationPresent(AutoProtoGenerator::class)).not()
 
     }
 
@@ -264,7 +276,11 @@ class ProtoGenerator(
     }
 
     private fun KSClassDeclaration.getProtoDataType(): String {
-        return if (isSubclassOf(JsonElement::class) ||
+        return if (isAnnotationPresent(AutoProtoGenerator::class)) {
+            val name = simpleName.asString()
+            addImportIfNotAvailable("${PACKAGE_IMPORT}/${name}.${PROTO_EXTENSION}")
+            name
+        } else if (isSubclassOf(JsonElement::class) ||
             isSubclassOf("JSONArray", "org.json.JSONArray") ||
             isSubclassOf("JSONObject", "org.json.JSONObject")
         ) {
@@ -291,7 +307,7 @@ class ProtoGenerator(
     }
 
     private fun createListMessage(variableName: String, type: String): String {
-        val messageName = getRepeatableName(type)
+        val messageName = getRepeatableName(type, variableName)
         if (messageMap.contains(messageName).not()) {
             val data = StringBuilder()
             data.appendLine("message $messageName {")
@@ -302,8 +318,8 @@ class ProtoGenerator(
         return messageName
     }
 
-    private fun getRepeatableName(type: String): String {
-        val msgName = type.getMessageName()
+    private fun getRepeatableName(variableName: String, type: String): String {
+        val msgName = type.getMessageName(variableName)
         return if (msgName.startsWith("RepeatableOf")) {
             msgName.increment()
         } else {
@@ -311,8 +327,9 @@ class ProtoGenerator(
         }
     }
 
-    private fun String.getMessageName(): String {
-        return replace("google.protobuf.Struct", "Struct").removeCommaAndCapitalize()
+    private fun String.getMessageName(variableName: String): String {
+        return (replace("google.protobuf.Struct", "Struct") + ",${variableName}")
+            .removeCommaAndCapitalize()
 
     }
 

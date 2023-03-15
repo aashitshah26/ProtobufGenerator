@@ -1,6 +1,5 @@
 package com.protogen.genproto
 
-import com.google.gson.annotations.SerializedName
 import com.protogen.core.AutoProtoGenerator
 import com.protogen.core.OneOfChild
 import com.protogen.core.OneOfParent

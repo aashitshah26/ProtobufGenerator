@@ -15,8 +15,8 @@ class ProtoGeneratorSymbolProcessor(
 ) : SymbolProcessor {
 
     companion object {
-        private const val PROTO_EXTENSION = "proto"
-        private const val PACKAGE = "com.protogen"
+        internal const val PROTO_EXTENSION = "proto"
+        internal const val PACKAGE = "com.protogen"
     }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {

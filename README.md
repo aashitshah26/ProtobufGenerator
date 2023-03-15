@@ -54,7 +54,7 @@ data class Animal(
 )
 ```
 
-If there is a class which is inherited by some other classes and the parent class is referenced in your data class. We will have to use `@OneOfParent` and `@OneOfChild` annotations to support the generation of porto messages for child as well. See [Test 2](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test2.kt) for better understanding.
+If there is a class which is inherited by some other classes and the parent class is referenced in your data class. We will have to use `@OneOfParent` and `@OneOfChild` annotations to support the generation of porto messages for child as well. See [OneOfTestCase](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/OneOfTestCase.kt) for better understanding.
 
 ```kotlin
 @OneOfParent(shouldGenerateSelf = true)
@@ -68,7 +68,7 @@ data class LandAttribute(
 )
 ```
 
-If there is some parameter that you don't want to show up in your proto file, you can use `@IgnoreProtoProperty` annotation. See [Test 3](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test3.kt) for better understanding.
+If there is some parameter that you don't want to show up in your proto file, you can use `@IgnoreProtoProperty` annotation. See [IgnoreProtoPropertyTestCase](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/IgnoreProtoPropertyTestCase.kt) for better understanding.
 
 ```kotlin
 @AutoProtoGenerator(javaPackage = "com.proto.test3")
@@ -79,7 +79,27 @@ data class Test3(
 )
 ```
 
-We have also added support for Gson. All the properties annotated with `SerializedName` will use the annontation value as name. See [Test 1](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/Test1.kt) for better understanding.
+If your model has a parameter which has some type T, but you want to add this parameter in proto with some different 
+type, you can use `@FieldConvertedType` annotation. See [FieldConvertedTypeTestCase](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/FieldConvertedTypeTestCase.kt) for better understanding.
+
+```kotlin
+@AutoProtoGenerator(javaPackage = "com.proto.FieldConvertedTypeTest")
+data class FieldConvertedTypeTestCase(
+    @FieldConvertedType(
+        type = List::class,
+        typeParams = [
+            FieldConvertedType(
+                List::class,
+                [FieldConvertedType(String::class, isNullable = true)]
+            )
+        ],
+        isNullable = false
+    )
+    val mappedProp: List<Int> = listOf(),
+)
+```
+
+We have also added support for Gson. All the properties annotated with `SerializedName` will use the annontation value as name. See [SerializedNameTestCase](https://github.com/aashitshah26/ProtobufGenerator/blob/main/app/src/main/java/com/protogen/genproto/SerializedNameTestCase.kt) for better understanding.
 
 ```kotlin
 @AutoProtoGenerator(javaPackage = "com.proto.animal")
