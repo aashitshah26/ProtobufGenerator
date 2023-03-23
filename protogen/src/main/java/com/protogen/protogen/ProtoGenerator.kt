@@ -16,7 +16,8 @@ import com.google.gson.JsonElement
 import com.protogen.core.AutoProtoGenerator
 
 class ProtoGenerator(
-    private val logger: KSPLogger
+    private val logger: KSPLogger,
+    private val callback: NewProtoCallback
 ) {
 
     private val messageMap: MutableMap<String, String> = mutableMapOf()
@@ -277,6 +278,7 @@ class ProtoGenerator(
 
     private fun KSClassDeclaration.getProtoDataType(): String {
         return if (isAnnotationPresent(AutoProtoGenerator::class)) {
+            callback.onCreateNewProtoFile(this)
             val name = simpleName.asString()
             addImportIfNotAvailable("${PACKAGE_IMPORT}/${name}.${PROTO_EXTENSION}")
             name

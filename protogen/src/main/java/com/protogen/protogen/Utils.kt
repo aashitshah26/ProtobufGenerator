@@ -78,7 +78,7 @@ fun KSClassDeclaration.isSubclassOf(simpleNameK: String, qualifiedNameK: String)
                 }?.let { true } ?: false
 
 fun Resolver.getSymbols(cls: KClass<*>) =
-    getSymbolsWithAnnotation(cls.qualifiedName.orEmpty())
+    getSymbolsWithAnnotation(cls.qualifiedName.orEmpty(), inDepth = true)
         .filterIsInstance<KSClassDeclaration>()
         .filter { it.classKind == ClassKind.CLASS }
 
@@ -154,12 +154,7 @@ private fun KSAnnotation.fetchType(resolver: Resolver, logger: KSPLogger): KSTyp
 }
 
 private fun KSAnnotation.getFieldConvertedData(logger: KSPLogger) = arguments.let {
-    logger.warn("annotation_0 ${it.first { it.name?.asString() == "type" }.value}")
-    logger.warn("annotation_1 ${it.first { it.name?.asString() == "typeParams" }.value}")
-    logger.warn("annotation_2 ${it.first { it.name?.asString() == "isNullable" }.value}")
-
     FieldConvertedData(
-
         (it.first { it.name?.asString() == "type" }.value as KSType).starProjection(),
         (it.first { it.name?.asString() == "typeParams" }.value as java.util.ArrayList<KSAnnotation>),
         (it.first { it.name?.asString() == "isNullable" }.value as Boolean)

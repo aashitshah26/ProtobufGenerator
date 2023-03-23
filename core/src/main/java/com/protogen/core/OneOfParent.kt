@@ -1,5 +1,5 @@
 package com.protogen.core
 
 @Target(AnnotationTarget.CLASS)
-@Retention(AnnotationRetention.SOURCE)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class OneOfParent(val shouldGenerateSelf: Boolean)

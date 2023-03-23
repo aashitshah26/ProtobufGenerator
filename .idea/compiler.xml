@@ -3,6 +3,7 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="1.8">
       <module name="ProtobufGenerator.app" target="11" />
+      <module name="ProtobufGenerator.mod1" target="11" />
     </bytecodeTargetLevel>
   </component>
 </project>

@@ -1,5 +1,5 @@
 package com.protogen.core
 
 @Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.SOURCE)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class IgnoreProtoProperty

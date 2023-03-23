@@ -6,8 +6,10 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
 import com.protogen.core.AutoProtoGenerator
+import java.util.LinkedList
 
 class ProtoGeneratorSymbolProcessor(
     private val environment: SymbolProcessorEnvironment,
@@ -21,17 +23,27 @@ class ProtoGeneratorSymbolProcessor(
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols = resolver.getSymbols(AutoProtoGenerator::class)
+        symbols.forEach {
+            logger.warn("symbols: ${it.simpleName.asString()}")
+        }
         val unableToProcess = symbols.filterNot { it.validate() }.toList()
-        symbols.filter { it.validate() }.forEach {
+        val symbolList = LinkedList<KSClassDeclaration>()
+        symbolList.addAll(symbols.filter { it.validate() })
+        while (symbolList.isNotEmpty()) {
+            val item = symbolList.poll()
             environment.codeGenerator.createNewFile(
                 dependencies = Dependencies(false, *resolver.getAllFiles().toList().toTypedArray()),
                 packageName = PACKAGE,
-                fileName = it.simpleName.asString(),
+                fileName = item.simpleName.asString(),
                 extensionName = PROTO_EXTENSION
             ).apply {
-                write(ProtoGenerator(logger).createProto(
-                    it,
-                    it.getProtoOptions(),
+                write(ProtoGenerator(logger) {
+                    if (symbolList.contains(it).not()) {
+                        symbolList.add(it)
+                    }
+                }.createProto(
+                    item,
+                    item.getProtoOptions(),
                     resolver
                 ).toByteArray(Charsets.UTF_8))
             }

@@ -74,5 +74,6 @@ dependencies {
     implementation(libs.material)
     implementation("com.google.code.gson:gson:2.8.7")
     implementation(project(":core"))
+    implementation(project(":mod1"))
     ksp(project(":protogen"))
 }

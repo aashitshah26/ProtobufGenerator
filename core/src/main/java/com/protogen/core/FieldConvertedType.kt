@@ -3,7 +3,7 @@ package com.protogen.core
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.BINARY)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class FieldConvertedType(
     val type: KClass<out Any>,
     val typeParams: Array<FieldConvertedType> = [],
@@ -11,14 +11,14 @@ annotation class FieldConvertedType(
 )
 
 @Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.BINARY)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class FieldTypeParam(
     val nested: FieldTypeParam,
     val typeParam: Array<KClass<*>> = []
 )
 
 @Target(AnnotationTarget.PROPERTY)
-@Retention(AnnotationRetention.BINARY)
+@Retention(AnnotationRetention.RUNTIME)
 annotation class FieldConvertedType1(
     val type: KClass<*>
 )
