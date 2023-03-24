@@ -278,9 +278,11 @@ class ProtoGenerator(
 
     private fun KSClassDeclaration.getProtoDataType(): String {
         return if (isAnnotationPresent(AutoProtoGenerator::class)) {
-            callback.onCreateNewProtoFile(this)
             val name = simpleName.asString()
-            addImportIfNotAvailable("${PACKAGE_IMPORT}/${name}.${PROTO_EXTENSION}")
+            if (messageMap.contains(name).not() && messageInPipeline.contains(name).not()) {
+                callback.onCreateNewProtoFile(this)
+                addImportIfNotAvailable("${PACKAGE_IMPORT}/${name}.${PROTO_EXTENSION}")
+            }
             name
         } else if (isSubclassOf(JsonElement::class) ||
             isSubclassOf("JSONArray", "org.json.JSONArray") ||

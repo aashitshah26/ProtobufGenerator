@@ -5,5 +5,6 @@ import com.protogen.mod1.L2Sample
 
 @AutoProtoGenerator(javaPackage = "com.proto.DependencyItemTestCase")
 data class DependencyItemTestCase(
-    val l2: L2Sample
+    val l2: L2Sample,
+    val a1: DependencyItemTestCase
 )
