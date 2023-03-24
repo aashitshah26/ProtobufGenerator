@@ -6,7 +6,7 @@ To implement protobuf, we use Wire to serialize/deserialize, which takes .proto 
 
 ## Installing
 
-[ ![Maven Central](https://badgen.net/maven/v/maven-central/io.github.aashitshah26/protobufgenerator-core) ](https://central.sonatype.com/artifact/io.github.aashitshah26/protobufgenerator-core/1.0.6)
+[ ![Maven Central](https://badgen.net/maven/v/maven-central/io.github.aashitshah26/protobufgenerator-core) ](https://central.sonatype.com/artifact/io.github.aashitshah26/protobufgenerator-core/1.0.8)
 
 Add KSP plugin, gradle dependency, packing options and include generated ksp directory to your sourceSets
 
@@ -33,8 +33,8 @@ android {
 }
 
 dependencies {
-    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.4")
-    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.4")
+    implementation("io.github.aashitshah26:protobufgenerator-core:1.0.8")
+    ksp("io.github.aashitshah26:protobufgenerator-protogen:1.0.8")
 }
 
 
