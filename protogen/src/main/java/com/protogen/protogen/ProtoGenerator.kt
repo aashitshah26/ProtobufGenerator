@@ -265,7 +265,7 @@ class ProtoGenerator(
             } else {
                 createListMessage(variableName, handleGeneration(variableName, type.arguments[0].type!!.resolve(), resolver, missRepeated))
             }
-        } else if (isSubclassOf(Map::class)) {
+        } else if (isSubclassOf(Map::class) || isSubclassOf(java.util.HashMap::class)) {
             "map<${handleGeneration(variableName, type.arguments[0].type!!.resolve(), resolver, false)}," +
                     "${handleGeneration(variableName, type.arguments[1].type!!.resolve(), resolver, false)}>"
         } else if (shouldGenerateMsg()) {
