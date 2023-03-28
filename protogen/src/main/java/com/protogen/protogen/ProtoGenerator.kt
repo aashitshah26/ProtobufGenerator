@@ -165,7 +165,7 @@ class ProtoGenerator(
     }
 
     private fun KSClassDeclaration.canFieldBeOptional(): Boolean {
-        return isRepeatableDataStructure().not() && isSubclassOf(Map::class).not() && isSubclassOf(Map::class).not()
+        return isRepeatableDataStructure().not() && isSubclassOf(Map::class).not() && isSubclassOf(java.util.HashMap::class).not()
     }
 
     private fun KSClassDeclaration.isRepeatableDataStructure(): Boolean {
@@ -179,6 +179,7 @@ class ProtoGenerator(
         return (isDefaultDataStructure() ||
                 isRepeatableDataStructure() ||
                 isSubclassOf(Map::class) ||
+                isSubclassOf(java.util.HashMap::class) ||
                 isSubclassOf(JsonElement::class) ||
                 isSubclassOf("JSONArray", "org.json.JSONArray") ||
                 isSubclassOf("JSONObject", "org.json.JSONObject") ||
