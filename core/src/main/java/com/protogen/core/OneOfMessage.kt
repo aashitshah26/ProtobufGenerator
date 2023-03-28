@@ -4,4 +4,7 @@ import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class OneOfChild(val parent: KClass<*>)
+annotation class OneOfMessage(
+    val shouldGenerateSelf: Boolean,
+    val childs: Array<KClass<out Any>> = []
+)

@@ -11,20 +11,14 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.KSTypeArgument
-import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Variance
 import com.google.gson.annotations.SerializedName
 import com.protogen.core.AutoProtoGenerator
 import com.protogen.core.FieldConvertedType
-import com.protogen.core.FieldConvertedType1
 import com.protogen.core.IgnoreProtoProperty
-import com.protogen.core.OneOfChild
-import com.protogen.core.OneOfParent
-import java.util.logging.Logger
+import com.protogen.core.OneOfMessage
 import kotlin.reflect.KClass
-import kotlin.reflect.full.createType
 
 
 fun KSClassDeclaration.isSealed() =
@@ -39,25 +33,18 @@ fun KSAnnotated.getSerializedName() =
 
 @OptIn(KspExperimental::class)
 fun KSClassDeclaration.isOneOfParent() =
-    getAnnotationsByType(OneOfParent::class).firstOrNull() != null
+    getAnnotationsByType(OneOfMessage::class).firstOrNull() != null
 
 @OptIn(KspExperimental::class)
 fun KSClassDeclaration.canGenerateSelf() =
-    getAnnotationsByType(OneOfParent::class).firstOrNull()?.shouldGenerateSelf == true
+    getAnnotationsByType(OneOfMessage::class).firstOrNull()?.shouldGenerateSelf == true
 
-fun Resolver.getOneOfChilds(declaration: KSClassDeclaration) =
-    getSymbolsWithAnnotation(OneOfChild::class.qualifiedName.orEmpty())
-        .filterIsInstance<KSClassDeclaration>()
-        .filter { it.classKind == ClassKind.CLASS }
-        .filter { it.oneOfParentChecker(declaration) }
-
-fun KSClassDeclaration.oneOfParentChecker(parent: KSClassDeclaration) =
+fun KSClassDeclaration.getOneOfChilds() =
     (annotations.firstOrNull {
-        it.shortName.asString() == OneOfChild::class.simpleName
-    }?.arguments?.first()?.value as? KSType)?.declaration?.let {
-        it.simpleName.asString() == parent.simpleName.asString() &&
-                it.qualifiedName?.asString() == parent.qualifiedName?.asString()
-    } ?: false
+        it.shortName.asString() == OneOfMessage::class.simpleName
+    }?.arguments?.firstOrNull { it.name?.asString() == "childs" }?.value as? List<KSType>)?.mapNotNull {
+        it.starProjection().declaration as? KSClassDeclaration
+    }
 
 fun KSClassDeclaration.isSubclassOf(cls: KClass<*>): Boolean =
     (simpleName.asString() == cls.simpleName && qualifiedName?.asString() == cls.qualifiedName) ||
@@ -105,28 +92,10 @@ fun KSPropertyDeclaration.getConvertedType(resolver: Resolver, logger: KSPLogger
     annotations.firstOrNull {
         it.shortName.asString() == FieldConvertedType::class.simpleName
     }?.let { it.fetchType(resolver, logger) }
-//        ?.arguments?.let {
-//        var type = (it.getOrNull(0)?.value as? KSType)?.starProjection()
-//        (it.getOrNull(1)?.value as? java.util.ArrayList<KSType>)?.let {
-//            type = type?.replace(
-//                it.map {
-//                    resolver.getTypeArgument(resolver.createKSTypeReferenceFromKSType(it.starProjection()), Variance.CONTRAVARIANT)
-//                }
-//            )
-//        }
-//        (it.getOrNull(2)?.value as? Boolean)?.let {
-//            type = if (it) {
-//                type?.makeNullable()
-//            } else {
-//                type?.makeNotNullable()
-//            }
-//        }
-//        type!!
-//    }
 
 
 private fun KSAnnotation.fetchType(resolver: Resolver, logger: KSPLogger): KSType {
-    return getFieldConvertedData(logger).let {
+    return getFieldConvertedData().let {
         if (it.annotations.isEmpty()) {
             if (it.isNullable) {
                 it.type.makeNullable()
@@ -153,7 +122,7 @@ private fun KSAnnotation.fetchType(resolver: Resolver, logger: KSPLogger): KSTyp
     }
 }
 
-private fun KSAnnotation.getFieldConvertedData(logger: KSPLogger) = arguments.let {
+private fun KSAnnotation.getFieldConvertedData() = arguments.let {
     FieldConvertedData(
         (it.first { it.name?.asString() == "type" }.value as KSType).starProjection(),
         (it.first { it.name?.asString() == "typeParams" }.value as java.util.ArrayList<KSAnnotation>),

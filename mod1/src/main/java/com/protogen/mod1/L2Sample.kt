@@ -2,13 +2,24 @@ package com.protogen.mod1
 
 import com.protogen.core.AutoProtoGenerator
 import com.protogen.core.IgnoreProtoProperty
-import com.protogen.core.OneOfParent
+import com.protogen.core.OneOfMessage
 
-@OneOfParent(true)
+@OneOfMessage(
+    shouldGenerateSelf = true,
+    childs = [L2SampleChild1::class, L2SampleChild2::class]
+)
 @AutoProtoGenerator("abc.sdasd.s")
 data class L2Sample(
     val a: String,
 
     @IgnoreProtoProperty
     val b: Int
+)
+
+data class L2SampleChild1(
+    val a1: String
+)
+
+data class L2SampleChild2(
+    val a2: String,
 )

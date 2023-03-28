@@ -86,7 +86,7 @@ class ProtoGenerator(
             data.appendLine("message $messageName {")
             data.appendLine("\toneof single_field_oneof {")
             var count = 1
-            resolver.getOneOfChilds(this).forEachIndexed { index, t ->
+            getOneOfChilds()?.forEachIndexed { index, t ->
                 val nm = t.simpleName.asString()
                 data.appendLine("\t\t${nm} ${nm.lowercase()} = ${count++};")
                 t.generateMessage(resolver)
@@ -145,15 +145,14 @@ class ProtoGenerator(
             }
 
             realClass?.let { rC ->
-                val isRepeatableDS = rC.isRepeatableDataStructure()
                 if (rC.shouldGenerateMsg()) {
                     rC.generateMessage(resolver)
                 }
                 data.append("\t")
-                if (isNullable && isRepeatableDS.not() && rC.isSubclassOf(Map::class).not()) {
+                if (isNullable && rC.canFieldBeOptional()) {
                     data.append("optional ")
                 }
-                if (isRepeatableDS) {
+                if (rC.isRepeatableDataStructure()) {
                     data.append("repeated ")
                 }
                 data.append("$typeAsPerHandledItem ")
@@ -163,6 +162,10 @@ class ProtoGenerator(
             data.appendLine("}")
         messageMap[messageName] = data.toString()
         messageInPipeline.remove(messageName)
+    }
+
+    private fun KSClassDeclaration.canFieldBeOptional(): Boolean {
+        return isRepeatableDataStructure().not() && isSubclassOf(Map::class).not() && isSubclassOf(Map::class).not()
     }
 
     private fun KSClassDeclaration.isRepeatableDataStructure(): Boolean {
