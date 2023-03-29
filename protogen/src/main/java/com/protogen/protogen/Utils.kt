@@ -17,6 +17,7 @@ import com.google.gson.annotations.SerializedName
 import com.protogen.core.AutoProtoGenerator
 import com.protogen.core.FieldConvertedType
 import com.protogen.core.IgnoreProtoProperty
+import com.protogen.core.OneOfChild
 import com.protogen.core.OneOfMessage
 import kotlin.reflect.KClass
 
@@ -39,12 +40,42 @@ fun KSClassDeclaration.isOneOfParent() =
 fun KSClassDeclaration.canGenerateSelf() =
     getAnnotationsByType(OneOfMessage::class).firstOrNull()?.shouldGenerateSelf == true
 
-fun KSClassDeclaration.getOneOfChilds() =
+fun KSClassDeclaration.getOneOfChilds(resolver: Resolver): List<KSClassDeclaration> {
+    return annotations.firstOrNull { it.shortName.asString() == OneOfMessage::class.simpleName }?.let { annotation ->
+        val findOneOfChilds = annotation.arguments.firstOrNull {
+            it.name?.asString() == "findOneOfChilds"
+        }?.value as? Boolean ?: false
+
+        val childs = (annotation.arguments.firstOrNull {
+            it.name?.asString() == "childs"
+        }?.value as? List<KSType>)?.mapNotNull {
+            it.starProjection().declaration as? KSClassDeclaration
+        }?.toMutableList() ?: mutableListOf()
+
+        if (findOneOfChilds) {
+            resolver.getOneOfChilds(this).forEach {
+                if (childs.contains(it).not()) {
+                    childs.add(it)
+                }
+            }
+        }
+        childs
+    } ?: emptyList()
+}
+
+fun Resolver.getOneOfChilds(declaration: KSClassDeclaration) =
+    getSymbolsWithAnnotation(OneOfChild::class.qualifiedName.orEmpty())
+        .filterIsInstance<KSClassDeclaration>()
+        .filter { it.classKind == ClassKind.CLASS }
+        .filter { it.oneOfParentChecker(declaration) }
+
+fun KSClassDeclaration.oneOfParentChecker(parent: KSClassDeclaration) =
     (annotations.firstOrNull {
-        it.shortName.asString() == OneOfMessage::class.simpleName
-    }?.arguments?.firstOrNull { it.name?.asString() == "childs" }?.value as? List<KSType>)?.mapNotNull {
-        it.starProjection().declaration as? KSClassDeclaration
-    }
+        it.shortName.asString() == OneOfChild::class.simpleName
+    }?.arguments?.first()?.value as? KSType)?.declaration?.let {
+        it.simpleName.asString() == parent.simpleName.asString() &&
+                it.qualifiedName?.asString() == parent.qualifiedName?.asString()
+    } ?: false
 
 fun KSClassDeclaration.isSubclassOf(cls: KClass<*>): Boolean =
     (simpleName.asString() == cls.simpleName && qualifiedName?.asString() == cls.qualifiedName) ||

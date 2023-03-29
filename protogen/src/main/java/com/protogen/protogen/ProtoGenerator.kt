@@ -86,7 +86,7 @@ class ProtoGenerator(
             data.appendLine("message $messageName {")
             data.appendLine("\toneof single_field_oneof {")
             var count = 1
-            getOneOfChilds()?.forEachIndexed { index, t ->
+            getOneOfChilds(resolver).forEachIndexed { index, t ->
                 val nm = t.simpleName.asString()
                 data.appendLine("\t\t${nm} ${nm.lowercase()} = ${count++};")
                 t.generateMessage(resolver)

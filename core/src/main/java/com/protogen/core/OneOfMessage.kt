@@ -6,5 +6,6 @@ import kotlin.reflect.KClass
 @Retention(AnnotationRetention.RUNTIME)
 annotation class OneOfMessage(
     val shouldGenerateSelf: Boolean,
-    val childs: Array<KClass<out Any>> = []
+    val childs: Array<KClass<out Any>> = [],
+    val findOneOfChilds: Boolean = false
 )
