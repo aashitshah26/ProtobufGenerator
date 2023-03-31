@@ -24,6 +24,8 @@ class ProtoGenerator(
     private val typeProjectionMap: HashMap<String, KSType> = HashMap()
     private val importList: MutableList<String> = mutableListOf()
     private val messageInPipeline: MutableList<String> = mutableListOf()
+    private val messageNameCounter: HashMap<String, Int> = HashMap()
+    private val messageNameMapper: HashMap<String, String> = HashMap()
 
     companion object {
         private val DEFAULT_CLASSES = listOf("String", "Int", "Float", "Long", "Double", "Boolean")
@@ -62,14 +64,16 @@ class ProtoGenerator(
     }
 
     private fun KSClassDeclaration.generateMessage(resolver: Resolver) {
-        val messageName = simpleName.asString()
+        val messageName = (qualifiedName ?: simpleName).asString()
         if (messageMap.contains(messageName) || messageInPipeline.contains(simpleName.asString())) {
             return
         }
+        val realMessageName = getMessageName()
+        messageNameMapper[messageName] = realMessageName
         if (isSealed()) {
             messageInPipeline.add(messageName)
             val data = StringBuilder()
-            data.appendLine("message $messageName {")
+            data.appendLine("message $realMessageName {")
             data.appendLine("\toneof single_field_oneof {")
             getSealedSubclasses().forEachIndexed { index, sealedInnerClass ->
                 val nm = sealedInnerClass.simpleName.asString()
@@ -79,11 +83,15 @@ class ProtoGenerator(
             data.appendLine("\t}")
             data.appendLine("}")
             messageMap[messageName] = data.toString()
+            messageNameCounter.compute(realMessageName) { _, oldVaue ->
+                (oldVaue ?: -1) + 1
+            }
             messageInPipeline.remove(messageName)
         } else if (isOneOfParent()) {
             messageInPipeline.add(messageName)
+            messageNameMapper[messageName] = realMessageName
             val data = StringBuilder()
-            data.appendLine("message $messageName {")
+            data.appendLine("message $realMessageName {")
             data.appendLine("\toneof single_field_oneof {")
             var count = 1
             getOneOfChilds(resolver).forEachIndexed { index, t ->
@@ -92,38 +100,48 @@ class ProtoGenerator(
                 t.generateMessage(resolver)
             }
             if (canGenerateSelf()) {
-                val nm = messageName + "Self"
+                val nm = simpleName.asString() + "Self"
+                logger.warn("generatingSelf --> $nm")
                 data.appendLine("\t\t${nm} ${nm.lowercase()} = ${count++};")
-                generateDefaultMessage(nm, resolver)
+                generateDefaultMessage(nm, resolver, true)
             }
             data.appendLine("\t}")
             data.appendLine("}")
             messageMap[messageName] = data.toString()
             messageInPipeline.remove(messageName)
+            messageNameCounter.compute(realMessageName) { _, oldVaue ->
+                (oldVaue ?: -1) + 1
+            }
         } else if (isEnum()) {
+            messageNameMapper[messageName] = realMessageName
             messageInPipeline.add(messageName)
             val data = StringBuilder()
-            data.appendLine("enum $messageName {")
+            data.appendLine("enum $realMessageName {")
             getEnumConstants().forEachIndexed { index, item ->
                 data.append("\t")
                 val nm = item.getSerializedName() ?: item.simpleName.asString()
-                data.appendLine("${messageName}_${nm} = ${index};")
+                data.appendLine("${realMessageName}_${nm} = ${index};")
             }
             data.appendLine("}")
             messageMap[messageName] = data.toString()
             messageInPipeline.remove(messageName)
+            messageNameCounter.compute(realMessageName) { _, oldVaue ->
+                (oldVaue ?: -1) + 1
+            }
         } else {
             generateDefaultMessage(messageName, resolver)
         }
     }
 
-    private fun KSClassDeclaration.generateDefaultMessage(messageName: String, resolver: Resolver) {
+    private fun KSClassDeclaration.generateDefaultMessage(messageName: String, resolver: Resolver, isSelfMsg: Boolean = false) {
         if (messageMap.contains(messageName) || messageInPipeline.contains(messageName)) {
             return
         }
+        val realMessageName = getMessageName(isSelfMsg)
+        messageNameMapper[messageName] = realMessageName
         messageInPipeline.add(messageName)
         val data = StringBuilder()
-        data.appendLine("message $messageName {")
+        data.appendLine("message $realMessageName {")
         var countItems = 1
         getAllProtoProperties().forEachIndexed { index, variable ->
             val type = variable.getConvertedType(resolver, logger) ?: variable.type.resolve()
@@ -161,6 +179,9 @@ class ProtoGenerator(
         }
             data.appendLine("}")
         messageMap[messageName] = data.toString()
+        messageNameCounter.compute(realMessageName) { _, oldVaue ->
+            (oldVaue ?: -1) + 1
+        }
         messageInPipeline.remove(messageName)
     }
 
@@ -282,12 +303,13 @@ class ProtoGenerator(
 
     private fun KSClassDeclaration.getProtoDataType(): String {
         return if (isAnnotationPresent(AutoProtoGenerator::class)) {
-            val name = simpleName.asString()
+            val name = (qualifiedName ?: simpleName).asString()
+            val realMessageName = getMessageName(shouldIncrement = false)
             if (messageMap.contains(name).not() && messageInPipeline.contains(name).not()) {
                 callback.onCreateNewProtoFile(this)
-                addImportIfNotAvailable("${PACKAGE_IMPORT}/${name}.${PROTO_EXTENSION}")
+                addImportIfNotAvailable("${PACKAGE_IMPORT}/${realMessageName}.${PROTO_EXTENSION}")
             }
-            name
+            realMessageName
         } else if (isSubclassOf(JsonElement::class) ||
             isSubclassOf("JSONArray", "org.json.JSONArray") ||
             isSubclassOf("JSONObject", "org.json.JSONObject")
@@ -310,7 +332,7 @@ class ProtoGenerator(
                 logger.error("Class name can't be null")
                 "null_name"
             }
-            else -> name
+            else -> messageNameMapper[(qualifiedName ?: simpleName).asString()]!!
         }
     }
 
@@ -324,6 +346,15 @@ class ProtoGenerator(
             messageMap[messageName] = data.toString()
         }
         return messageName
+    }
+
+    private fun KSClassDeclaration.getMessageName(isSelfMsg: Boolean = false, shouldIncrement: Boolean = true): String {
+        val name = simpleName.asString() + if (isSelfMsg) "Self" else ""
+        return name + if (shouldIncrement) {
+            (messageNameCounter[name]?.plus(1)?.toString() ?: "")
+        } else {
+            messageNameCounter[name]?.toString() ?: ""
+        }
     }
 
     private fun getRepeatableName(variableName: String, type: String): String {

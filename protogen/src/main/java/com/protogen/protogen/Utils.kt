@@ -81,7 +81,9 @@ fun KSClassDeclaration.isSubclassOf(cls: KClass<*>): Boolean =
     (simpleName.asString() == cls.simpleName && qualifiedName?.asString() == cls.qualifiedName) ||
             superTypes
                 .map { it.resolve().declaration }
-                .filter { (it as? KSClassDeclaration)?.classKind == ClassKind.CLASS }
+                .filter {
+                    (it as? KSClassDeclaration)?.classKind in listOf(ClassKind.CLASS, ClassKind.INTERFACE)
+                }
                 .firstOrNull {
                     cls.simpleName == it.simpleName.asString() && cls.qualifiedName == it.qualifiedName?.asString()
                 }?.let { true } ?: false
